@@ -1,0 +1,5 @@
+- tôi không muốn dựa vào type để xác định, mà hãy dựa vào url để xác định
+- hãy thêm setting hiển thị số video trên 1 hàng
+max là 4 video
+- xóa các setting mặc định của youtube 
+- chỉ insert thư viện nếu chưa tồn tại
