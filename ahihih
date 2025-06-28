@@ -1,0 +1,278 @@
+<!-- JSON data -->
+<script type="application/json" id="product-videos-{{ product.id }}">
+  [
+    {
+      "url": "https://www.youtube.com/watch?v=Ujq0m6GTo1k&list=RDUjq0m6GTo1k&start_radio=1",
+      "title": "Rick Astley - Never Gonna Give You Up",
+      "description": "YouTube Video Example",
+      "thumbnail": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+    },
+    {
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "title": "Big Buck Bunny",
+      "description": "MP4 Video Example",
+      "thumbnail": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=9bZkp7q19f0",
+      "title": "PSY - GANGNAM STYLE",
+      "description": "Another YouTube Example",
+      "thumbnail": "https://img.youtube.com/vi/9bZkp7q19f0/maxresdefault.jpg",
+    }
+  ]
+</script>
+
+<!-- Video Container -->
+<div id="video-gallery"></div>
+
+<!-- Plyr CDN -->
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+
+<!-- YouTube API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<!-- Display & Init Script -->
+<script>
+  // Global variable to track YouTube API readiness
+  let youTubeAPIReady = false;
+
+  // YouTube API ready callback
+  function onYouTubeIframeAPIReady() {
+    youTubeAPIReady = true;
+    console.log('YouTube API is ready');
+    // Trigger initialization if DOM is already loaded
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      initializeVideoGallery();
+    }
+  }
+
+  // Main initialization function
+  function initializeVideoGallery() {
+    const productId = {{ product.id }};
+    const dataEl = document.getElementById('product-videos-' + productId);
+    if (!dataEl) return;
+
+    const videoList = JSON.parse(dataEl.textContent);
+    const container = document.getElementById('video-gallery');
+
+    // Add CSS for loading states
+    const style = document.createElement('style');
+    style.textContent = `
+      .video-wrapper {
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .video-meta {
+        padding: 15px;
+        background: #f8f9fa;
+      }
+      .video-meta h3 {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+      }
+      .video-meta p {
+        margin: 0;
+        color: #666;
+      }
+      .video-container {
+        position: relative;
+        background: #000;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .error-message {
+        color: #e74c3c;
+        text-align: center;
+        padding: 20px;
+      }
+      .plyr {
+        width: 100%;
+        height: auto;
+      }
+    `;
+    document.head.appendChild(style);
+
+    videoList.forEach((video, index) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'video-wrapper';
+
+      // Title & Description
+      const info = document.createElement('div');
+      info.className = 'video-meta';
+      info.innerHTML = `<h3>${video.title}</h3><p>${video.description}</p>`;
+      wrapper.appendChild(info);
+
+      if (video.type === 'youtube') {
+        const videoId = getYouTubeId(video.url);
+        
+        if (!videoId) {
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error-message';
+          errorDiv.textContent = 'Invalid YouTube URL';
+          wrapper.appendChild(errorDiv);
+          container.appendChild(wrapper);
+          return;
+        }
+
+        const videoContainer = document.createElement('div');
+        videoContainer.className = 'video-container';
+        
+        // Add loading spinner
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'loading-spinner';
+        videoContainer.appendChild(loadingSpinner);
+        
+        wrapper.appendChild(videoContainer);
+        container.appendChild(wrapper);
+
+        // Create div element for YouTube (not video element)
+        const youtubeDiv = document.createElement('div');
+        youtubeDiv.id = `plyr-youtube-${index}`;
+        youtubeDiv.setAttribute('data-plyr-provider', 'youtube');
+        youtubeDiv.setAttribute('data-plyr-embed-id', videoId);
+
+        // Replace loading spinner with YouTube div
+        videoContainer.innerHTML = '';
+        videoContainer.appendChild(youtubeDiv);
+
+        // Wait for YouTube API to be ready before initializing Plyr
+        const initPlayer = () => {
+          try {
+            // Initialize Plyr with correct YouTube configuration
+            const player = new Plyr(`#plyr-youtube-${index}`, {
+              controls: [
+                'play-large',
+                'play',
+                'progress',
+                'current-time',
+                'mute',
+                'volume',
+                'captions',
+                'settings',
+                'pip',
+                'airplay',
+                'fullscreen'
+              ],
+              settings: ['captions', 'quality', 'speed'],
+              youtube: {
+                noCookie: false,
+                rel: 0,
+                showinfo: 0,
+                iv_load_policy: 3,
+                modestbranding: 1
+              }
+            });
+
+            // Handle player events
+            player.on('ready', () => {
+              console.log(`YouTube player ${index} is ready`);
+            });
+
+            player.on('error', (event) => {
+              console.error(`YouTube player ${index} error:`, event);
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'error-message';
+              errorDiv.textContent = 'Failed to load video. Please try again later.';
+              videoContainer.innerHTML = '';
+              videoContainer.appendChild(errorDiv);
+            });
+
+          } catch (error) {
+            console.error(`Error initializing YouTube player ${index}:`, error);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = 'Failed to initialize video player.';
+            videoContainer.innerHTML = '';
+            videoContainer.appendChild(errorDiv);
+          }
+        };
+
+        // Initialize player when YouTube API is ready
+        if (youTubeAPIReady) {
+          initPlayer();
+        } else {
+          // Wait for YouTube API to load
+          const checkAPI = setInterval(() => {
+            if (youTubeAPIReady) {
+              clearInterval(checkAPI);
+              initPlayer();
+            }
+          }, 100);
+        }
+
+      } else if (video.type === 'mp4') {
+        const videoEl = document.createElement('video');
+        videoEl.setAttribute('controls', '');
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('data-poster', video.thumbnail);
+        videoEl.className = 'plyr';
+        videoEl.innerHTML = `<source src="${video.url}" type="video/mp4" />`;
+        wrapper.appendChild(videoEl);
+        container.appendChild(wrapper);
+
+        // Initialize Plyr for MP4 videos
+        new Plyr(videoEl);
+      }
+    });
+
+    // Extract YouTube video ID with improved regex
+    function getYouTubeId(url) {
+      if (!url) return null;
+
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/watch\?.*&v=)([^#\&\?]{11})/,
+        /youtube\.com\/watch\?.*v=([^#\&\?]{11})/
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+          return match[1];
+        }
+      }
+
+      return null;
+    }
+  }
+
+  // Initialize when both DOM and YouTube API are ready
+  document.addEventListener('DOMContentLoaded', function () {
+    if (youTubeAPIReady) {
+      initializeVideoGallery();
+    }
+    // If YouTube API is not ready, it will be called from onYouTubeIframeAPIReady
+  });
+</script>
+
+
+{% schema %}
+{
+  "name": "Product Video",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "Video Settings"
+    }
+  ]
+}
+{% endschema %}
